@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+  
+  	<!-- 
+	* resultMap : 마이바티스 핵심 기능중 하나
+	  ResultSet으로부터 조회된 칼럼값을 하나씩 뽑아서 vo객체의 각 필드에 담는 JDBC코드를 대신 수행해준다. 
+
+	  <resultMap id="식별자" type="조회된결과를 담아서 반환하고자 하는 vo객체의 타입">
+	  	<id column="조회결과를 뽑고자하는 DB의 PK칼럼명" property="결과값을 담아줄 필드명" />
+	  	<result column="조회결과를 뽑고자하는 DB테이블의 칼럼명" property="결과값을 담아줄 필드명"/>
+	  </resultMap>
+ -->
+  
+<mapper namespace="boardMapper">
+	<resultMap id="replyResultSet" type="reply">
+	    <id column="REPLY_NO" property="replyNo"/>
+	    <result column="REPLY_CONTENT" property="replyContent"/>
+	    <result column="REF_BNO" property="refBno"/>
+	    <result column="REPLY_WRITER" property="replyWriter"/>
+	    <result column="CREATE_DATE" property="createDate"/>
+		<result column="STATUS" property="status"/>
+		<result column="USER_ID" property="replyUserId" />
+	</resultMap>
+	<resultMap id="boardResultSet" type='board'>
+		<id column="BOARD_NO" property="boardNo"/>
+		<result column="BOARD_USER_ID" property="userId"/>
+		
+		<collection property="list"
+		 javaType="java.util.ArrayList" ofType="reply"
+		 select="selectReplyList" column="BOARD_NO" />
+		<!--
+			댓글 LIST를 담기 위해서 ArrayList<Reply>객체를 생성
+			(javaType="java.util.ArrayList" ofType="reply")
+			
+			selectReplyList쿼리를 수행하기위해 필요한 파라미터는 현재
+			resultMap으로 조회된 BOARD_NO칼럼을 사용하겠다
+			(select="selectReplyList" column="BOARD_NO")		
+		 -->
+		 
+
+	</resultMap>
+	<select id="selectListCount" resultType="_int">
+		SELECT COUNT(*)
+		  FROM BOARD
+		WHERE STATUS='Y'
+	</select>
+	
+	<select id="selectList" resultType="board">
+		SELECT BOARD_NO , BOARD_TITLE, USER_ID, COUNT, CREATE_DATE
+		FROM BOARD B
+		JOIN MEMBER M ON (BOARD_WRITER = USER_NO)
+		WHERE B.STATUS = 'Y'
+		ORDER BY BOARD_NO DESC
+	</select>
+	
+	<!-- 조회수 증가 서비스 -->
+	
+	<update id="countUpdate" parameterType="_int">
+		UPDATE BOARD
+		   SET COUNT = COUNT +1
+		 WHERE BOARD_NO = #{boardNo}
+		   AND STATUS = 'Y'
+	</update>
+	
+	<select id="listAllSelect" parameterType="_int" resultMap='boardResultSet'>
+		SELECT
+			BOARD_NO,
+			BOARD_TITLE,
+			USER_ID as BOARD_USER_ID,
+			COUNT,
+			CREATE_DATE,
+			BOARD_CONTENT
+		FROM BOARD B
+		JOIN MEMBER ON (BOARD_WRITER = USER_NO)
+		WHERE BOARD_NO = #{boardNo}
+		  AND B.STATUS = 'Y'
+	</select>
+	
+	<select id="selectReplyList" parameterType="_int" resultMap="replyResultSet">
+		SELECT USER_ID, REPLY_CONTENT, CREATE_DATE
+		FROM REPLY R
+		JOIN MEMBER ON USER_NO = REPLY_WRITER
+		WHERE REF_BNO = #{boardNo}
+		  AND R.STATUS = 'Y'
+		ORDER BY REPLY_NO DESC
+	</select>
+	
+	
+	
+	<select id="selectSearchList" resultType="board" parameterType="hashmap">
+		SELECT USER_ID, BOARD_TITLE , BOARD_CONTENT, CREATE_DATE
+		FROM BOARD B
+		JOIN MEMBER ON USER_NO = BOARD_WRITER
+		WHERE B.STATUS = 'Y'
+
+		  <if test="condition == 'writer'">
+		  		AND USER_ID  
+		  </if>
+			
+			<if test="condition.equals('title')" >
+				AND BOARD_TITLE 
+			</if>
+			
+			<if test="condition == 'content'" >
+				AND BOARD_CONTENT 
+			</if>
+				LIKE '%' ||  #{keyword} ||'%'
+		ORDER BY BOARD_NO DESC
+	</select>
+	
+	
+	<select id="selectSearchCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		  FROM BOARD B
+		  JOIN MEMBER ON (BOARD_WRITER = USER_NO)
+		 WHERE B.STATUS = 'Y'
+		 <choose>
+		 	<when test="condition == 'writer'">
+		 		AND USER_ID 
+		 	</when>
+		 	<when test="condition == 'title'">
+		 		AND BOARD_TITLE
+		 	</when>
+		 	<otherwise>
+		 		AND BOARD_CONTENT
+	 		</otherwise>
+		 </choose>
+			LIKE '%' ||  #{keyword} ||'%'
+		ORDER BY BOARD_NO DESC
+	</select>
+	
+	
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
